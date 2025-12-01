@@ -43,25 +43,11 @@
         margin: 0 auto;
         box-shadow: 0 0 10px rgba(0,0,0,0.2);
     }
-
-    /* Botón invisible para habilitar sonido */
-    #unlockSound {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-        top: 0;
-        left: 0;
-        opacity: 0;
-        z-index: 9999;
-    }
 </style>
 </head>
 <body>
 
 <h1>Ubicación en tiempo real + Geocerca</h1>
-
-<!-- Botón invisible (primer toque habilita audio) -->
-<button id="unlockSound"></button>
 
 <div id="map"></div>
 
@@ -86,26 +72,6 @@ let userMarker = null;
 let geofenceCircle = null;
 let geofenceCenter = null;
 let insideGeofence = false;
-
-// SONIDO DE ALERTA (5 segundos)
-let alertSound = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
-alertSound.volume = 1.0;
-
-let soundEnabled = false;
-
-// ACTIVAMOS EL AUDIO CON UN ÚNICO CLIC INVISIBLE
-document.getElementById("unlockSound").addEventListener("click", () => {
-    soundEnabled = true;
-    alertSound.play().catch(()=>{});
-    document.getElementById("unlockSound").style.display = "none"; // se oculta después
-});
-
-// REPRODUCIR SIEMPRE (con clones)
-function playAlertSound() {
-    if (!soundEnabled) return;
-    let s = alertSound.cloneNode(true);
-    s.play().catch(()=>{});
-}
 
 // CREAR GEOCERCA
 function createGeofence() {
@@ -150,18 +116,22 @@ navigator.geolocation.watchPosition(pos => {
         let radius = geofenceCircle.getRadius();
         let isInside = distance <= radius;
 
-        // ENTRADA
+        // ENTRÓ
         if (isInside && insideGeofence === false) {
             insideGeofence = true;
             document.getElementById("geoStatus").textContent = "Entró a la geocerca";
-            playAlertSound();
+
+            // ALERTA DE ENTRADA
+            alert("📍 Entraste a la geocerca");
         }
 
-        // SALIDA
+        // SALIÓ
         if (!isInside && insideGeofence === true) {
             insideGeofence = false;
             document.getElementById("geoStatus").textContent = "Salió de la geocerca";
-            playAlertSound();
+
+            // ALERTA DE SALIDA
+            alert("⚠️ Saliste de la geocerca");
         }
     }
 
