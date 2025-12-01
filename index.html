@@ -1,280 +1,177 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ubicación en tiempo real + Geocerca</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ubicación en Tiempo Real + Geocerca</title>
 
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <style>
+<style>
     body {
-      margin: 0;
-      font-family: "Poppins", Arial, sans-serif;
-      background: #eef3f8;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+        font-family: Arial, sans-serif;
+        background: #eef2f3;
+        margin: 0;
+        padding: 0;
+        text-align: center;
     }
 
     h1 {
-      background: linear-gradient(135deg, #0078A8, #00A8A8);
-      color: white;
-      padding: 15px;
-      width: 100%;
-      margin: 0;
-      text-align: center;
+        background: #008c9e;
+        color: white;
+        margin: 0;
+        padding: 15px;
+        font-size: 28px;
     }
 
     #map {
-      width: 90%;
-      height: 500px;
-      margin: 20px auto;
-      border-radius: 15px;
-      border: 3px solid #0078A8;
+        width: 90%;
+        height: 480px;
+        margin: 20px auto;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 0 15px rgba(0,0,0,0.2);
     }
 
-    #info, #geofence-controls {
-      background: white;
-      width: 90%;
-      max-width: 600px;
-      padding: 20px;
-      border-radius: 15px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    #panel {
+        width: 80%;
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        margin: 0 auto;
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
     }
 
-    button {
-      padding: 10px 15px;
-      background: #0078A8;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      margin-top: 5px;
+    /* Botón invisible para habilitar sonido */
+    #unlockSound {
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        z-index: 9999;
     }
-  </style>
+</style>
 </head>
-
 <body>
 
 <h1>Ubicación en tiempo real + Geocerca</h1>
 
+<!-- Botón invisible (primer toque habilita audio) -->
+<button id="unlockSound"></button>
+
 <div id="map"></div>
 
-<div id="geofence-controls">
-  <h3>Geocerca</h3>
-  <p>Haz clic en el mapa para definir el centro.</p>
+<div id="panel">
+    <h2>Geocerca</h2>
+    <p>Haz clic en el mapa para definir el centro.</p>
 
-  <label>Radio (metros):</label>
-  <input type="number" id="radiusInput" value="150" min="10" max="5000">
+    <label>Radio (metros):</label>
+    <input type="number" id="radius" value="150" min="10">
 
-  <button id="setGeofence">Crear Geocerca</button>
+    <button onclick="createGeofence()">Crear Geocerca</button>
 
-  <button id="enableSound">🔊 Activar sonido</button>
+    <h3 id="geoStatus">Sin geocerca detectada</h3>
 </div>
 
-<div id="info">
-  <p><strong>ID:</strong> <span id="id">--</span></p>
-  <p><strong>Latitud:</strong> <span id="lat">--</span></p>
-  <p><strong>Longitud:</strong> <span id="lon">--</span></p>
-  <p><strong>Estado Geocerca:</strong> <span id="geoStatus">--</span></p>
-</div>
+<script>
+// MAPA
+let map = L.map("map").setView([-16.5, -68.15], 14);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+let userMarker = null;
+let geofenceCircle = null;
+let geofenceCenter = null;
+let insideGeofence = false;
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
+// SONIDO DE ALERTA (5 segundos)
+let alertSound = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
+alertSound.volume = 1.0;
 
-  // -------------------------
-  // FIREBASE CONFIG
-  // -------------------------
-  const firebaseConfig = {
-    apiKey: "AIzaSyCXn-GQ4K2gqaLwpMrtK_tSDDII204X9Hk",
-    authDomain: "mapa-684b4.firebaseapp.com",
-    projectId: "mapa-684b4",
-    storageBucket: "mapa-684b4.firebasestorage.app",
-    messagingSenderId: "1022457464337",
-    appId: "1:1022457464337:web:4d3fc37564881207bb53b0",
-    measurementId: "G-WEQ9JLK1L8"
-  };
+let soundEnabled = false;
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-  // -------------------------
-  // MAPA
-  // -------------------------
-  mapboxgl.accessToken = "pk.eyJ1IjoiamVzc2ljYWxhZnVlbnRlbCIsImEiOiJjbWhseHVndWQyOG1nMm1xMW1kMDZzNHdhIn0.tSJ9wotbIUT-r372rOWt2A";
-
-  const map = new mapboxgl.Map({
-    container: "map",
-    style: "mapbox://styles/mapbox/streets-v11",
-    center: [-68.1193, -16.5000],
-    zoom: 14
-  });
-
-  map.addControl(new mapboxgl.NavigationControl());
-
-  let marker = null;
-
-  // -------------------------
-  // AUDIO — SONIDO LARGO Y FUERTE
-  // -------------------------
-  let alertAudio = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
-  alertAudio.volume = 1.0;
-
-  let soundEnabled = false;
-
-  document.getElementById("enableSound").onclick = () => {
+// ACTIVAMOS EL AUDIO CON UN ÚNICO CLIC INVISIBLE
+document.getElementById("unlockSound").addEventListener("click", () => {
     soundEnabled = true;
-    alert("🔊 Sonido activado correctamente");
-  };
+    alertSound.play().catch(()=>{});
+    document.getElementById("unlockSound").style.display = "none"; // se oculta después
+});
 
-  // función segura para reproducir sonido
-  function playAlertSound() {
+// REPRODUCIR SIEMPRE (con clones)
+function playAlertSound() {
     if (!soundEnabled) return;
-    const sound = alertAudio.cloneNode(true); // evita bloqueo
-    sound.play().catch(() => {});
-  }
+    let s = alertSound.cloneNode(true);
+    s.play().catch(()=>{});
+}
 
-  // -------------------------
-  // GEOCERCA
-  // -------------------------
-  let geofence = null;
-  let insideGeofence = null;
+// CREAR GEOCERCA
+function createGeofence() {
+    map.once("click", function(e) {
+        geofenceCenter = e.latlng;
+        let radius = parseFloat(document.getElementById("radius").value);
 
-  map.on("click", (e) => {
-    const center = [e.lngLat.lng, e.lngLat.lat];
-    const radius = parseInt(document.getElementById("radiusInput").value);
+        if (geofenceCircle) map.removeLayer(geofenceCircle);
 
-    geofence = { center, radius };
-    drawGeofence(center, radius);
-  });
+        geofenceCircle = L.circle(geofenceCenter, {
+            radius: radius,
+            color: "blue",
+            fillColor: "lightblue",
+            fillOpacity: 0.3
+        }).addTo(map);
 
-  document.getElementById("setGeofence").onclick = () => {
-    alert("Haz clic en el mapa para colocar el centro de la geocerca");
-  };
+        document.getElementById("geoStatus").textContent = "Geocerca creada correctamente";
+    });
+}
 
-  function drawGeofence(center, radius) {
-    const circle = createGeoJSONCircle(center, radius);
+// DISTANCIA
+function getDistance(a, b) {
+    return map.distance(a, b);
+}
 
-    if (map.getSource("geofence")) {
-      map.getSource("geofence").setData(circle);
+// UBICACIÓN EN TIEMPO REAL
+navigator.geolocation.watchPosition(pos => {
+    let lat = pos.coords.latitude;
+    let lon = pos.coords.longitude;
+
+    let userPos = L.latLng(lat, lon);
+
+    if (!userMarker) {
+        userMarker = L.marker(userPos).addTo(map);
+        map.setView(userPos, 16);
     } else {
-      map.addSource("geofence", {
-        type: "geojson",
-        data: circle
-      });
+        userMarker.setLatLng(userPos);
+    }
 
-      map.addLayer({
-        id: "geofence-layer",
-        type: "fill",
-        source: "geofence",
-        paint: {
-          "fill-color": "#00A8A8",
-          "fill-opacity": 0.25
+    if (geofenceCenter) {
+        let distance = getDistance(userPos, geofenceCenter);
+        let radius = geofenceCircle.getRadius();
+        let isInside = distance <= radius;
+
+        // ENTRADA
+        if (isInside && insideGeofence === false) {
+            insideGeofence = true;
+            document.getElementById("geoStatus").textContent = "Entró a la geocerca";
+            playAlertSound();
         }
-      });
-    }
-  }
 
-  // Círculo geográfico
-  function createGeoJSONCircle(center, radiusInMeters) {
-    const points = 64;
-    const coords = { latitude: center[1], longitude: center[0] };
-    const km = radiusInMeters / 1000;
-
-    const ret = [];
-    for (let i = 0; i < points; i++) {
-      const angle = (i * 360) / points;
-      const dx = km * Math.cos(angle * Math.PI / 180);
-      const dy = km * Math.sin(angle * Math.PI / 180);
-
-      const lng = coords.longitude + (dx / Math.cos(coords.latitude * Math.PI / 180)) / 111;
-      const lat = coords.latitude + dy / 111;
-
-      ret.push([lng, lat]);
-    }
-    ret.push(ret[0]);
-    return {
-      type: "FeatureCollection",
-      features: [{
-        type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [ret]
+        // SALIDA
+        if (!isInside && insideGeofence === true) {
+            insideGeofence = false;
+            document.getElementById("geoStatus").textContent = "Salió de la geocerca";
+            playAlertSound();
         }
-      }]
-    };
-  }
-
-  // -------------------------
-  // UBICACIÓN EN TIEMPO REAL
-  // -------------------------
-  const deviceId = "76e78ee43d8252b4";
-  const ubicacionRef = ref(db, `Ubicaciones/${deviceId}`);
-
-  onValue(ubicacionRef, (snapshot) => {
-    const data = snapshot.val();
-    if (!data) return;
-
-    const lat = parseFloat(data.latitud);
-    const lon = parseFloat(data.longitud);
-
-    if (!marker) {
-      marker = new mapboxgl.Marker({ color: "red" }).setLngLat([lon, lat]).addTo(map);
-    } else {
-      marker.setLngLat([lon, lat]);
     }
 
-    document.getElementById("id").textContent = data.idDispositivo || "Desconocido";
-    document.getElementById("lat").textContent = lat.toFixed(5);
-    document.getElementById("lon").textContent = lon.toFixed(5);
-
-    checkGeofence(lat, lon);
-  });
-
-  // -------------------------
-  // COMPROBAR GEOCERCA
-  // -------------------------
-  function checkGeofence(lat, lon) {
-    if (!geofence) return;
-
-    const distance = getDistance(lat, lon, geofence.center[1], geofence.center[0]);
-    const isInside = distance <= geofence.radius;
-
-    if (insideGeofence === null) insideGeofence = isInside;
-
-    // ENTRÓ A LA GEOCERCA
-    if (isInside && insideGeofence === false) {
-      document.getElementById("geoStatus").textContent = "Entró a la geocerca";
-      playAlertSound();
-      insideGeofence = true;
-    }
-
-    // SALIÓ DE LA GEOCERCA
-    if (!isInside && insideGeofence === true) {
-      document.getElementById("geoStatus").textContent = "Salió de la geocerca";
-      playAlertSound();  // ahora sí suena siempre
-      insideGeofence = false;
-    }
-  }
-
-  function getDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(lat1 * Math.PI / 180) *
-      Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) ** 2;
-
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
+}, err => {
+    alert("Error de GPS: " + err.message);
+}, {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: 5000
+});
 </script>
 
 </body>
