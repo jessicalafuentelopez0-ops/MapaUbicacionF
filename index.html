@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ubicación en tiempo real - Geocerca</title>
+  <title>Ubicación en tiempo real + Geocerca</title>
 
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
 
@@ -88,7 +88,7 @@
   import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
 
   // -------------------------
-  // CONFIG FIREBASE
+  // FIREBASE CONFIG
   // -------------------------
   const firebaseConfig = {
     apiKey: "AIzaSyCXn-GQ4K2gqaLwpMrtK_tSDDII204X9Hk",
@@ -120,26 +120,30 @@
   let marker = null;
 
   // -------------------------
-  // AUDIO ALERTA
+  // AUDIO — SONIDO LARGO Y FUERTE
   // -------------------------
-  let alertAudio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+  let alertAudio = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
   alertAudio.volume = 1.0;
 
   let soundEnabled = false;
 
   document.getElementById("enableSound").onclick = () => {
     soundEnabled = true;
-    alertAudio.play().catch(() => {});
     alert("🔊 Sonido activado correctamente");
   };
 
+  // función segura para reproducir sonido
+  function playAlertSound() {
+    if (!soundEnabled) return;
+    const sound = alertAudio.cloneNode(true); // evita bloqueo
+    sound.play().catch(() => {});
+  }
+
   // -------------------------
-  // VARIABLES DE GEOCERCA
+  // GEOCERCA
   // -------------------------
   let geofence = null;
   let insideGeofence = null;
-
-  let circleLayer = null;
 
   map.on("click", (e) => {
     const center = [e.lngLat.lng, e.lngLat.lat];
@@ -150,10 +154,9 @@
   });
 
   document.getElementById("setGeofence").onclick = () => {
-    alert("Haz clic en el mapa para colocar la geocerca");
+    alert("Haz clic en el mapa para colocar el centro de la geocerca");
   };
 
-  // Dibuja la geocerca
   function drawGeofence(center, radius) {
     const circle = createGeoJSONCircle(center, radius);
 
@@ -177,7 +180,7 @@
     }
   }
 
-  // Genera círculo para Mapbox
+  // Círculo geográfico
   function createGeoJSONCircle(center, radiusInMeters) {
     const points = 64;
     const coords = { latitude: center[1], longitude: center[0] };
@@ -208,7 +211,7 @@
   }
 
   // -------------------------
-  // ESCUCHA COORDS DESDE FIREBASE
+  // UBICACIÓN EN TIEMPO REAL
   // -------------------------
   const deviceId = "76e78ee43d8252b4";
   const ubicacionRef = ref(db, `Ubicaciones/${deviceId}`);
@@ -240,25 +243,25 @@
     if (!geofence) return;
 
     const distance = getDistance(lat, lon, geofence.center[1], geofence.center[0]);
-
     const isInside = distance <= geofence.radius;
 
     if (insideGeofence === null) insideGeofence = isInside;
 
-    if (isInside && !insideGeofence) {
+    // ENTRÓ A LA GEOCERCA
+    if (isInside && insideGeofence === false) {
       document.getElementById("geoStatus").textContent = "Entró a la geocerca";
-      if (soundEnabled) alertAudio.play();
+      playAlertSound();
       insideGeofence = true;
     }
 
-    if (!isInside && insideGeofence) {
+    // SALIÓ DE LA GEOCERCA
+    if (!isInside && insideGeofence === true) {
       document.getElementById("geoStatus").textContent = "Salió de la geocerca";
-      if (soundEnabled) alertAudio.play();
+      playAlertSound();  // ahora sí suena siempre
       insideGeofence = false;
     }
   }
 
-  // Distancia entre dos puntos
   function getDistance(lat1, lon1, lat2, lon2) {
     const R = 6371000;
     const dLat = (lat2 - lat1) * Math.PI / 180;
