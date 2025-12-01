@@ -103,7 +103,7 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
-/* === MAPA MAPBOX COMO EL ORIGINAL === */
+/* === MAPA MAPBOX === */
 let map = L.map("map").setView([-16.5, -68.15], 13);
 
 L.tileLayer(
@@ -117,8 +117,8 @@ L.tileLayer(
     }
 ).addTo(map);
 
-let userMarker;
-let geofenceCircle;
+let userMarker = null;
+let geofenceCircle = null;
 let geofenceCenter = null;
 let insideGeofence = false;
 
@@ -129,17 +129,21 @@ function updateLocation(position) {
 
     if (!userMarker) {
         userMarker = L.marker([lat, lon]).addTo(map);
+        map.setView([lat, lon], 16);
     } else {
         userMarker.setLatLng([lat, lon]);
     }
 
-    map.setView([lat, lon]);
-
-    verificarGeocerca(lat, lon);
+    if (geofenceCenter) {
+        verificarGeocerca(lat, lon);
+    }
 }
 
-navigator.geolocation.watchPosition(updateLocation,
-    (err)=>{ alert("Error obteniendo la ubicación"); },
+navigator.geolocation.watchPosition(
+    updateLocation,
+    (err) => {
+        Swal.fire("Error", "Activa la ubicación para continuar", "error");
+    },
     { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
 );
 
@@ -192,16 +196,16 @@ function crearGeocerca() {
     });
 }
 
-/* === VERIFICAR ENTRADA / SALIDA === */
+/* === ENTRAR O SALIR DE LA GEOCERCA === */
 function verificarGeocerca(lat, lon) {
     if (!geofenceCenter) return;
 
-    const distancia = map.distance([lat, lon], geofenceCenter);
     const radio = parseInt(document.getElementById("radius").value);
+    const distancia = map.distance([lat, lon], geofenceCenter);
 
     let status = document.getElementById("geoStatus");
 
-    // Entró
+    // --- ENTRÓ ---
     if (distancia <= radio && !insideGeofence) {
         insideGeofence = true;
 
@@ -219,7 +223,7 @@ function verificarGeocerca(lat, lon) {
         setTimeout(()=> status.classList.remove("alerta"), 1500);
     }
 
-    // Salió
+    // --- SALIÓ ---
     if (distancia > radio && insideGeofence) {
         insideGeofence = false;
 
@@ -241,4 +245,3 @@ function verificarGeocerca(lat, lon) {
 
 </body>
 </html>
-V
