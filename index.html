@@ -8,6 +8,9 @@
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <style>
     body {
         margin: 0;
@@ -80,7 +83,7 @@
 
 <body>
 
-<h1> 🎀 PROYECTO GEOCERCA – JESSICA LAFUENTE🎀 </h1>
+<h1> 🎀 PROYECTO GEOCERCA – JESSICA LAFUENTE 🎀 </h1>
 
 <div id="map"></div>
 
@@ -133,7 +136,7 @@ navigator.geolocation.watchPosition(updateLocation,
     { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
 );
 
-/* === CREAR GEOCERCA === */
+/* === CLICK EN EL MAPA PARA MARCAR CENTRO === */
 map.on("click", function(e) {
     geofenceCenter = e.latlng;
 
@@ -147,13 +150,39 @@ map.on("click", function(e) {
     }).addTo(map);
 });
 
+/* === CREAR GEOCERCA === */
 function crearGeocerca() {
+    const radio = parseInt(document.getElementById("radius").value);
+
     if (!geofenceCenter) {
-        alert("Debes seleccionar un punto en el mapa.");
+        Swal.fire({
+            icon: "info",
+            title: "Selecciona un punto",
+            text: "Debes hacer clic en el mapa para crear la geocerca.",
+            background: "#ffe6f2",
+            color: "#d63384",
+            confirmButtonColor: "#ff66b3"
+        });
         return;
     }
 
-    alert("Geocerca creada correctamente.");
+    if (geofenceCircle) geofenceCircle.remove();
+
+    geofenceCircle = L.circle(geofenceCenter, {
+        radius: radio,
+        color: "#ff4da6",
+        fillColor: "#ffb3d9",
+        fillOpacity: 0.3
+    }).addTo(map);
+
+    Swal.fire({
+        icon: "success",
+        title: "Geocerca creada",
+        text: "La geocerca se estableció correctamente.",
+        background: "#ffe6f2",
+        color: "#d63384",
+        confirmButtonColor: "#ff66b3"
+    });
 }
 
 /* === VERIFICAR ENTRADA / SALIDA === */
@@ -168,6 +197,16 @@ function verificarGeocerca(lat, lon) {
     // Entró
     if (distancia <= radio && !insideGeofence) {
         insideGeofence = true;
+
+        Swal.fire({
+            title: "¡Entraste a la geocerca!",
+            text: "Estás dentro del área establecida.",
+            icon: "success",
+            background: "#ffe6f2",
+            color: "#d63384",
+            confirmButtonColor: "#ff66b3"
+        });
+
         status.textContent = "✔ Entraste a la geocerca";
         status.classList.add("alerta");
         setTimeout(()=> status.classList.remove("alerta"), 1500);
@@ -176,6 +215,16 @@ function verificarGeocerca(lat, lon) {
     // Salió
     if (distancia > radio && insideGeofence) {
         insideGeofence = false;
+
+        Swal.fire({
+            title: "¡Saliste de la geocerca!",
+            text: "Te encuentras fuera del área establecida.",
+            icon: "warning",
+            background: "#ffe6f2",
+            color: "#d63384",
+            confirmButtonColor: "#ff66b3"
+        });
+
         status.textContent = "✖ Saliste de la geocerca";
         status.classList.add("alerta");
         setTimeout(()=> status.classList.remove("alerta"), 1500);
