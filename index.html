@@ -1,182 +1,247 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title> 🎀Proyecto Geocerca – Jessica Lafuente 🎀</title>
-
-<!-- Leaflet -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌸 Proyecto Geocerca – Jessica Lafuente 🌸</title>
+ 
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+ 
+  <style>
     body {
-        font-family: Arial, sans-serif;
-        background: #fdeef4; /* rosado ultra suave */
-        margin: 0;
-        padding: 0;
-        text-align: center;
+      margin: 0;
+      font-family: "Poppins", Arial, sans-serif;
+      background: #fdeef4; /* rosado super claro */
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-
+ 
     h1 {
-        background: linear-gradient(135deg, #e91e63, #f06292); /* rosa fuerte → rosa claro */
-        color: white;
-        margin: 0;
-        padding: 18px;
-        font-size: 28px;
-        font-weight: bold;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      background: linear-gradient(135deg, #e91e63, #f06292); /* rosa fuerte a rosa suave */
+      color: white;
+      padding: 15px 10px;
+      margin: 0;
+      width: 100%;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      font-size: 1.5em;
+      letter-spacing: 1px;
+      font-weight: bold;
     }
-
+ 
     #map {
-        width: 90%;
-        height: 480px;
-        margin: 20px auto;
-        border-radius: 15px;
-        overflow: hidden;
-        border: 3px solid #e91e63;
-        box-shadow: 0 0 15px rgba(233, 30, 99, 0.3);
+      width: 90%;
+      height: 500px;
+      margin: 25px auto;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(233,30,99,0.3);
+      border: 3px solid #e91e63;
+      transition: transform 0.3s ease;
+    }
+ 
+    #map:hover {
+      transform: scale(1.01);
+    }
+ 
+    #info {
+      background: white;
+      width: 85%;
+      max-width: 600px;
+      margin: 15px auto 30px;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(233,30,99,0.15);
+      text-align: left;
+      transition: box-shadow 0.3s ease;
+      border: 2px solid #f8bbd0;
+    }
+ 
+    #info:hover {
+      box-shadow: 0 6px 20px rgba(233,30,99,0.3);
+    }
+ 
+    #info p {
+      margin: 10px 0;
+      font-size: 1em;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #fce4ec;
+      padding-bottom: 6px;
+    }
+ 
+    #info strong {
+      color: #e91e63;
+    }
+ 
+    span {
+      font-weight: 600;
+      color: #444;
     }
 
-    #panel {
-        width: 80%;
-        background: white;
-        padding: 20px;
-        border-radius: 15px;
-        margin: 0 auto 40px;
-        box-shadow: 0 0 12px rgba(233, 30, 99, 0.25);
-        border: 2px solid #f8bbd0;
+    /* Contenedor geocerca */
+    #geofence-panel {
+      background: white;
+      border: 2px solid #f8bbd0;
+      padding: 15px;
+      border-radius: 15px;
+      width: 85%;
+      max-width: 600px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(233,30,99,0.15);
     }
 
-    #panel h2 {
-        color: #e91e63;
-        margin-top: 0;
+    #geofence-panel h2 {
+      color: #e91e63;
+      margin-top: 0;
     }
 
-    #panel button {
-        background: #e91e63;
-        color: white;
-        border: none;
-        padding: 10px 18px;
-        border-radius: 10px;
-        cursor: pointer;
-        font-size: 15px;
-        margin-top: 10px;
-        transition: 0.3s;
+    input, button {
+      padding: 8px;
+      border-radius: 8px;
+      border: 2px solid #f8bbd0;
     }
 
-    #panel button:hover {
-        background: #c2185b;
+    button {
+      background: #e91e63;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.3s;
     }
 
-    input[type="number"] {
-        padding: 5px;
-        border-radius: 8px;
-        border: 2px solid #f8bbd0;
+    button:hover {
+      background: #c2185b;
     }
 
-    #geoStatus {
-        font-weight: bold;
-        color: #c2185b;
-        margin-top: 15px;
-        font-size: 18px;
-    }
-</style>
+  </style>
 </head>
 <body>
-
-<h1> Proyecto Geocerca – Jessica Lafuente</h1>
+<h1>Proyecto Geocerca – Jessica Lafuente</h1>
 
 <div id="map"></div>
 
-<div id="panel">
-    <h2>Geocerca</h2>
-    <p>Haz clic en el mapa para definir el centro.</p>
+<!-- PANEL NUEVO -->
+<div id="geofence-panel">
+  <h2>Geocerca</h2>
+  <p>Haz clic en el mapa para definir el centro.</p>
 
-    <label>Radio (metros): </label>
-    <input type="number" id="radius" value="150" min="10">
+  <label>Radio (m):</label>
+  <input type="number" id="radius" value="150" min="10">
 
-    <button onclick="createGeofence()">Crear Geocerca</button>
+  <button id="createGeofenceBtn">Crear Geocerca</button>
 
-    <h3 id="geoStatus">Sin geocerca detectada</h3>
+  <h3 id="geoStatus">Sin geocerca creada</h3>
 </div>
 
-<script>
-// MAPA
-let map = L.map("map").setView([-16.5, -68.15], 14);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+<!-- PANEL INFO ORIGINAL -->
+<div id="info">
+  <p><strong>ID:</strong> <span id="id">--</span></p>
+  <p><strong>Latitud:</strong> <span id="lat">--</span></p>
+  <p><strong>Longitud:</strong> <span id="lon">--</span></p>
+</div>
+ 
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+ 
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
+ 
+  const firebaseConfig = {
+    apiKey: "AIzaSyCXn-GQ4K2gqaLwpMrtK_tSDDII204X9Hk",
+    authDomain: "mapa-684b4.firebaseapp.com",
+    projectId: "mapa-684b4",
+    storageBucket: "mapa-684b4.firebasestorage.app",
+    messagingSenderId: "1022457464337",
+    appId: "1:1022457464337:web:4d3fc37564881207bb53b0",
+    measurementId: "G-WEQ9JLK1L8"
+  };
 
-let userMarker = null;
-let geofenceCircle = null;
-let geofenceCenter = null;
-let insideGeofence = false;
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
 
-// CREAR GEOCERCA
-function createGeofence() {
-    map.once("click", function(e) {
-        geofenceCenter = e.latlng;
-        let radius = parseFloat(document.getElementById("radius").value);
+  mapboxgl.accessToken = 'pk.eyJ1IjoiamVzc2ljYWxhZnVlbnRlbCIsImEiOiJjbWhseHVndWQyOG1nMm1xMW1kMDZzNHdhIn0.tSJ9wotbIUT-r372rOWt2A';
+ 
+  // MAPA
+  const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [-68.1193, -16.5000],
+    zoom: 13
+  });
 
-        if (geofenceCircle) map.removeLayer(geofenceCircle);
+  map.addControl(new mapboxgl.NavigationControl());
 
-        geofenceCircle = L.circle(geofenceCenter, {
-            radius: radius,
-            color: "#e91e63",
-            fillColor: "#f8bbd0",
-            fillOpacity: 0.4
-        }).addTo(map);
+  let marker = null;
 
-        document.getElementById("geoStatus").textContent = "Geocerca creada correctamente";
+  // GEOcerca
+  let geofenceCenter = null;
+  let geofenceRadius = 150;
+  let geofenceCircle = null;
+  let inside = false;
+
+  document.getElementById("createGeofenceBtn").onclick = () => {
+    geofenceRadius = parseFloat(document.getElementById("radius").value);
+
+    map.once("click", e => {
+      geofenceCenter = e.lngLat;
+
+      // Eliminar círculo anterior
+      if (geofenceCircle) geofenceCircle.remove();
+
+      geofenceCircle = new mapboxgl.Marker({ color: "pink" })
+        .setLngLat(geofenceCenter)
+        .addTo(map);
+
+      document.getElementById("geoStatus").textContent = "Geocerca creada";
+
+      alert("📍 Geocerca creada correctamente");
     });
-}
+  };
 
-// DISTANCIA
-function getDistance(a, b) {
-    return map.distance(a, b);
-}
+  // UBICACIÓN EN TIEMPO REAL
+  const deviceId = "76e78ee43d8252b4";
+  const ubicacionRef = ref(db, `Ubicaciones/${deviceId}`);
 
-// UBICACIÓN EN TIEMPO REAL
-navigator.geolocation.watchPosition(pos => {
-    let lat = pos.coords.latitude;
-    let lon = pos.coords.longitude;
+  onValue(ubicacionRef, snapshot => {
+    const data = snapshot.val();
+    if (!data) return;
 
-    let userPos = L.latLng(lat, lon);
+    const lat = parseFloat(data.latitud);
+    const lon = parseFloat(data.longitud);
 
-    if (!userMarker) {
-        userMarker = L.marker(userPos).addTo(map);
-        map.setView(userPos, 16);
+    if (!marker) {
+      marker = new mapboxgl.Marker({ color: 'red' }).setLngLat([lon, lat]).addTo(map);
     } else {
-        userMarker.setLatLng(userPos);
+      marker.setLngLat([lon, lat]);
     }
 
+    document.getElementById("id").textContent = data.idDispositivo || "Desconocido";
+    document.getElementById("lat").textContent = lat.toFixed(5);
+    document.getElementById("lon").textContent = lon.toFixed(5);
+
+    // --- DETECCIÓN DE GEOCERCA ---
     if (geofenceCenter) {
-        let distance = getDistance(userPos, geofenceCenter);
-        let radius = geofenceCircle.getRadius();
-        let isInside = distance <= radius;
+      const dx = lon - geofenceCenter.lng;
+      const dy = lat - geofenceCenter.lat;
+      const distance = Math.sqrt(dx*dx + dy*dy) * 100000;
 
-        // ENTRÓ
-        if (isInside && insideGeofence === false) {
-            insideGeofence = true;
-            document.getElementById("geoStatus").textContent = "Entraste a la geocerca";
-            alert("📍 Entraste a la geocerca");
-        }
+      const isInside = distance <= geofenceRadius;
 
-        // SALIÓ
-        if (!isInside && insideGeofence === true) {
-            insideGeofence = false;
-            document.getElementById("geoStatus").textContent = "Saliste de la geocerca";
-            alert("⚠️ Saliste de la geocerca");
-        }
+      if (isInside && !inside) {
+        inside = true;
+        alert("📍 Entraste a la geocerca");
+        document.getElementById("geoStatus").textContent = "Dentro de la geocerca";
+      }
+
+      if (!isInside && inside) {
+        inside = false;
+        alert("⚠️ Saliste de la geocerca");
+        document.getElementById("geoStatus").textContent = "Fuera de la geocerca";
+      }
     }
+  });
 
-}, err => {
-    alert("Error de GPS: " + err.message);
-}, {
-    enableHighAccuracy: true,
-    maximumAge: 0,
-    timeout: 5000
-});
 </script>
-
 </body>
 </html>
