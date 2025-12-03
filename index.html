@@ -1,246 +1,179 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>PROYECTO GEOCERCA – JESSICA LAFUENTE</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa en Tiempo Real</title>
 
-<!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link href="https://cdn.jsdelivr.net/npm/ol@7.3.0/ol.css" rel="stylesheet">
 
-<!-- SweetAlert2 -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-<style>
-    body {
-        margin: 0;
-        font-family: Arial, sans-serif;
-        background-color: #ffe6f2 !important; /* ROSADO SUAVE */
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    #map { width: 100%; height: 80vh; }
+    #panel {
+      padding: 10px;
+      background: #f8f9fa;
+      box-shadow: 0 0 5px rgba(0,0,0,0.2);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      height: 20vh;
     }
-
-    h1 {
-        text-align: center;
-        background-color: #ff99cc;
-        padding: 20px;
-        color: white;
-        margin: 0;
-        font-size: 28px;
-        font-weight: bold;
-        letter-spacing: 1px;
-    }
-
-    #map {
-        height: 500px;
-        width: 90%;
-        margin: 25px auto;
-        border: 4px solid #ff99cc;
-        border-radius: 12px;
-    }
-
-    .panel {
-        width: 80%;
-        margin: 20px auto;
-        padding: 20px;
-        background: white;
-        border-radius: 12px;
-        border: 2px solid #ff99cc;
-        box-shadow: 0 0 12px #ffb3d9;
-    }
-
-    label { font-weight: bold; }
-
-    input, button {
-        padding: 8px 12px;
-        margin-top: 8px;
-        border-radius: 8px;
-        border: 1px solid #ff66b3;
-    }
-
-    button {
-        background: #ff66b3;
-        color: white;
-        cursor: pointer;
-        font-weight: bold;
-    }
-
-    button:hover {
-        background: #ff3385;
-    }
-
-    /* ANIMACIÓN de alerta */
-    .alerta {
-        animation: parpadeo 1s ease-in-out 3;
-        font-weight: bold;
-    }
-
-    @keyframes parpadeo {
-        0% { color: #ff0066; }
-        50% { color: #ff66b3; }
-        100% { color: #ff0066; }
-    }
-</style>
+    #panel div { text-align: center; }
+    #alert { color: red; font-weight: bold; }
+  </style>
 </head>
-
 <body>
-
-<h1> 🎀 PROYECTO GEOCERCA – JESSICA LAFUENTE 🎀 </h1>
 
 <div id="map"></div>
 
-<div class="panel">
-    <h2>Geocerca</h2>
-    <p>Haz clic en el mapa para definir el centro.</p>
-
-    <label>Radio (metros):</label>
-    <input type="number" id="radius" value="150" min="10">
-
-    <button onclick="crearGeocerca()">Crear Geocerca</button>
-
-    <p id="geoStatus"></p>
+<div id="panel">
+  <div>Latitud: <span id="lat">0</span></div>
+  <div>Longitud: <span id="lng">0</span></div>
+  <div>Distancia: <span id="distance">0</span> m</div>
+  <div id="alert"></div>
 </div>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<audio id="alertSound" src="https://www.soundjay.com/button/beep-07.mp3" preload="auto"></audio>
+
+<!-- OpenLayers -->
+<script src="https://cdn.jsdelivr.net/npm/ol@7.3.0/dist/ol.js"></script>
+
+<!-- Firebase compat -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* === MAPA MAPBOX === */
-let map = L.map("map").setView([-16.5, -68.15], 13);
+window.onload = function() {
 
-L.tileLayer(
-    "https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}",
-    {
-        maxZoom: 19,
-        id: "mapbox/streets-v11",
-        tileSize: 512,
-        zoomOffset: -1,
-        accessToken: "pk.eyJ1IjoiamVzc2ljYWxhZnVlbnRlbCIsImEiOiJjbWhseHVndWQyOG1nMm1xMW1kMDZzNHdhIn0.tSJ9wotbIUT-r372rOWt2A"
-    }
-).addTo(map);
+  // ----------------- FIREBASE CONFIG -----------------
+  const firebaseConfig = {
+    apiKey: "TU_API_KEY",
+    authDomain: "TU_PROJECT_ID.firebaseapp.com",
+    projectId: "TU_PROJECT_ID",
+    storageBucket: "TU_PROJECT_ID.appspot.com",
+    messagingSenderId: "TU_SENDER_ID",
+    appId: "TU_APP_ID"
+  };
 
-let userMarker = null;
-let geofenceCircle = null;
-let geofenceCenter = null;
-let insideGeofence = false;
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-/* === GEOLOCALIZACIÓN === */
-function updateLocation(position) {
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
+  // ----------------- DEVICE CONFIG -----------------
+  const deviceId = "c02662f7eceb5744";  // ESTE ES EL DOCUMENTO EN FIRESTORE
 
-    if (!userMarker) {
-        userMarker = L.marker([lat, lon]).addTo(map);
-        map.setView([lat, lon], 16);
+  // Coordenadas de geocerca (LONGITUD, LATITUD)
+  const geofenceCenter = [-68.125310, -16.487357];
+  const geofenceRadius = 35; // metros
+
+  const alertSound = document.getElementById("alertSound");
+
+  // ----------------- MAPA -----------------
+  const map = new ol.Map({
+    target: "map",
+    layers: [
+      new ol.layer.Tile({ source: new ol.source.OSM() })
+    ],
+    view: new ol.View({
+      center: ol.proj.fromLonLat(geofenceCenter),
+      zoom: 16
+    })
+  });
+
+  // Marcador del dispositivo
+  const deviceFeature = new ol.Feature({
+    geometry: new ol.geom.Point(ol.proj.fromLonLat(geofenceCenter))
+  });
+
+  deviceFeature.setStyle(new ol.style.Style({
+    image: new ol.style.Circle({
+      radius: 8,
+      fill: new ol.style.Fill({ color: "blue" }),
+      stroke: new ol.style.Stroke({ color: "white", width: 2 })
+    })
+  }));
+
+  const vectorLayer = new ol.layer.Vector({
+    source: new ol.source.Vector({ features: [deviceFeature] })
+  });
+
+  map.addLayer(vectorLayer);
+
+  // Geocerca
+  const geofenceCircle = new ol.Feature({
+    geometry: new ol.geom.Circle(
+      ol.proj.fromLonLat(geofenceCenter),
+      geofenceRadius
+    )
+  });
+
+  const geofenceLayer = new ol.layer.Vector({
+    source: new ol.source.Vector({ features: [geofenceCircle] }),
+    style: new ol.style.Style({
+      stroke: new ol.style.Stroke({ color: "red", width: 2 }),
+      fill: new ol.style.Fill({ color: "rgba(255,0,0,0.1)" })
+    })
+  });
+
+  map.addLayer(geofenceLayer);
+
+  setTimeout(() => map.updateSize(), 100);
+
+  // ----------------- FUNCIONES -----------------
+  function toRad(v) { return v * Math.PI / 180; }
+
+  function distanceBetween(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(toRad(lat1)) *
+              Math.cos(toRad(lat2)) *
+              Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  let alertActive = false;
+
+  function updateDevice(lat, lng) {
+    const coords = ol.proj.fromLonLat([lng, lat]);
+    deviceFeature.getGeometry().setCoordinates(coords);
+
+    document.getElementById("lat").textContent = lat.toFixed(6);
+    document.getElementById("lng").textContent = lng.toFixed(6);
+
+    const dist = distanceBetween(lat, lng, geofenceCenter[1], geofenceCenter[0]);
+    document.getElementById("distance").textContent = dist.toFixed(1);
+
+    if (dist <= geofenceRadius) {
+      document.getElementById("alert").textContent = "⚠ Dentro de la geocerca";
+      if (!alertActive) {
+        alertSound.play();
+        alertActive = true;
+      }
     } else {
-        userMarker.setLatLng([lat, lon]);
+      document.getElementById("alert").textContent = "";
+      alertActive = false;
     }
+  }
 
-    if (geofenceCenter) {
-        verificarGeocerca(lat, lon);
-    }
-}
+  // ----------------- LECTURA FIRESTORE TIEMPO REAL -----------------
+  db.collection("ubicaciones").doc(deviceId)
+    .onSnapshot((doc) => {
+      if (doc.exists) {
+        const data = doc.data();
 
-navigator.geolocation.watchPosition(
-    updateLocation,
-    (err) => {
-        Swal.fire("Error", "Activa la ubicación para continuar", "error");
-    },
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-);
+        // Firestore campos: latitude / longitude (según tu captura)
+        const lat = data.latitude;
+        const lng = data.longitude;
 
-/* === CLICK EN EL MAPA PARA MARCAR CENTRO === */
-map.on("click", function(e) {
-    geofenceCenter = e.latlng;
-
-    if (geofenceCircle) geofenceCircle.remove();
-
-    geofenceCircle = L.circle(geofenceCenter, {
-        radius: parseInt(document.getElementById("radius").value),
-        color: "#ff4da6",
-        fillColor: "#ffb3d9",
-        fillOpacity: 0.3
-    }).addTo(map);
-});
-
-/* === CREAR GEOCERCA === */
-function crearGeocerca() {
-    const radio = parseInt(document.getElementById("radius").value);
-
-    if (!geofenceCenter) {
-        Swal.fire({
-            icon: "info",
-            title: "Selecciona un punto",
-            text: "Debes hacer clic en el mapa para crear la geocerca.",
-            background: "#ffe6f2",
-            color: "#d63384",
-            confirmButtonColor: "#ff66b3"
-        });
-        return;
-    }
-
-    if (geofenceCircle) geofenceCircle.remove();
-
-    geofenceCircle = L.circle(geofenceCenter, {
-        radius: radio,
-        color: "#ff4da6",
-        fillColor: "#ffb3d9",
-        fillOpacity: 0.3
-    }).addTo(map);
-
-    Swal.fire({
-        icon: "success",
-        title: "Geocerca creada",
-        text: "La geocerca se estableció correctamente.",
-        background: "#ffe6f2",
-        color: "#d63384",
-        confirmButtonColor: "#ff66b3"
+        if (lat && lng) {
+          updateDevice(lat, lng);
+        }
+      }
     });
-}
 
-/* === ENTRAR O SALIR DE LA GEOCERCA === */
-function verificarGeocerca(lat, lon) {
-    if (!geofenceCenter) return;
-
-    const radio = parseInt(document.getElementById("radius").value);
-    const distancia = map.distance([lat, lon], geofenceCenter);
-
-    let status = document.getElementById("geoStatus");
-
-    // --- ENTRÓ ---
-    if (distancia <= radio && !insideGeofence) {
-        insideGeofence = true;
-
-        Swal.fire({
-            title: "¡Entraste a la geocerca!",
-            text: "Estás dentro del área establecida.",
-            icon: "success",
-            background: "#ffe6f2",
-            color: "#d63384",
-            confirmButtonColor: "#ff66b3"
-        });
-
-        status.textContent = "✔ Entraste a la geocerca";
-        status.classList.add("alerta");
-        setTimeout(()=> status.classList.remove("alerta"), 1500);
-    }
-
-    // --- SALIÓ ---
-    if (distancia > radio && insideGeofence) {
-        insideGeofence = false;
-
-        Swal.fire({
-            title: "¡Saliste de la geocerca!",
-            text: "Te encuentras fuera del área establecida.",
-            icon: "warning",
-            background: "#ffe6f2",
-            color: "#d63384",
-            confirmButtonColor: "#ff66b3"
-        });
-
-        status.textContent = "✖ Saliste de la geocerca";
-        status.classList.add("alerta");
-        setTimeout(()=> status.classList.remove("alerta"), 1500);
-    }
-}
+};
 </script>
 
 </body>
