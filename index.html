@@ -1,191 +1,246 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mapa Rosadito</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Proyecto Geocercas – Jessica Lafuente</title>
 
-  <!-- OpenLayers -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.4.0/ol.css">
-  <script src="https://cdn.jsdelivr.net/npm/ol@7.4.0/dist/ol.js"></script>
+<!-- MAPBOX -->
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.16.0/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.16.0/mapbox-gl.css" rel="stylesheet" />
 
-  <style>
+<style>
+    /* ======= TEMA COMPLETO ROSADO ======= */
     body {
-      margin: 0;
-      font-family: "Segoe UI", sans-serif;
-      background: #ffe4f1;
+        background: #ffe4f6;
+        margin: 0;
+        font-family: 'Poppins', sans-serif;
     }
 
     header {
-      background: #ff8ac2;
-      color: white;
-      text-align: center;
-      padding: 14px;
-      font-size: 22px;
-      font-weight: bold;
-      box-shadow: 0 3px 8px rgba(255, 0, 122, 0.2);
+        background: #b800aa;
+        padding: 20px;
+        text-align: center;
+        color: white;
+        font-size: 30px;
+        font-weight: 700;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.2);
     }
 
+    /* ======= BARRA SUPERIOR DE ALERTA ======= */
+    #geofenceAlert {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 15px 20px;
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        z-index: 9999;
+        display: none;
+        border-radius: 0 0 12px 12px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        animation: fadeIn 0.4s ease-in-out;
+    }
+
+    .alert-inside {
+        background: #ff8fd1;
+    }
+
+    .alert-outside {
+        background: #ff3366;
+        animation: shake 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes shake {
+        0% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        50% { transform: translateX(5px); }
+        75% { transform: translateX(-5px); }
+        100% { transform: translateX(0); }
+    }
+
+    /* ======= MAPA ======= */
     #map {
-      width: 100%;
-      height: 90vh;
+        width: 90%;
+        height: 500px;
+        border-radius: 20px;
+        margin: 40px auto;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
 
-    /* Tarjetas redonditas */
-    .status-card {
-      position: fixed;
-      top: 15px;
-      right: 15px;
-      padding: 15px 22px;
-      border-radius: 18px;
-      color: white;
-      font-size: 17px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 600;
-      box-shadow: 0 4px 10px rgba(255, 0, 120, 0.25);
-      z-index: 999;
-      transition: transform 0.2s ease-in-out;
+    /* Marcador rosado */
+    .pink-marker {
+        background-color: #ff2faf;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 0 10px rgba(255,20,147,0.8);
     }
 
-    .inside {
-      background: #ffb3d6;
+    /* Panel datos usuario */
+    .panel {
+        width: 90%;
+        background: white;
+        padding: 20px;
+        margin: 20px auto;
+        border-radius: 20px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        font-size: 18px;
+        color: #b800aa;
+        line-height: 28px;
     }
 
-    .outside {
-      background: #ff4b8f;
-      animation: alertPulse 0.7s infinite alternate;
-    }
-
-    @keyframes alertPulse {
-      0% { transform: scale(1); }
-      100% { transform: scale(1.05); }
-    }
-
-    /* Botón rosado */
-    button {
-      padding: 10px 18px;
-      background: #ff84c9;
-      border: none;
-      border-radius: 10px;
-      color: white;
-      font-size: 15px;
-      cursor: pointer;
-      box-shadow: 0 3px 8px rgba(255, 0, 160, 0.25);
-      transition: 0.2s;
-    }
-
-    button:hover {
-      background: #ff57b4;
-      transform: scale(1.04);
-    }
-  </style>
+</style>
 </head>
 
 <body>
-  <header>🌸 Mapa con Geocerca Rosadita 🌸</header>
 
-  <div id="map"></div>
+<header>PROYECTO GEOCERCAS – JESSICA LAFUENTE</header>
 
-  <!-- Tarjeta de estado -->
-  <div id="status" class="status-card inside">
-    💖 Dentro de la geocerca
-  </div>
+<!-- ALERTA SUPERIOR -->
+<div id="geofenceAlert"></div>
 
-  <script>
-    // Centro del mapa
-    const centerCoords = [-66.1653, -17.3895]; // Cochabamba (ejemplo)
-    const radius = 150; // metros
+<!-- MAPA -->
+<div id="map"></div>
 
-    // Conversión
-    const center = ol.proj.fromLonLat(centerCoords);
+<!-- INFO -->
+<div class="panel">
+    <b>ID:</b> <span id="uid"></span><br>
+    <b>Latitud:</b> <span id="lat"></span><br>
+    <b>Longitud:</b> <span id="lng"></span><br>
+</div>
 
-    // Mapa
-    const map = new ol.Map({
-      target: "map",
-      layers: [
-        new ol.layer.Tile({
-          source: new ol.source.OSM(),
-        }),
-      ],
-      view: new ol.View({
-        center: center,
-        zoom: 17,
-      }),
+<script>
+// ==================== MAPBOX ====================
+mapboxgl.accessToken = "TU_TOKEN_AQUI";
+
+const map = new mapboxgl.Map({
+    container: "map",
+    style: "mapbox://styles/mapbox/streets-v12",
+    center: [-68.1193, -16.5000],
+    zoom: 12
+});
+
+// ====== MARCADOR ROSADO ======
+const markerEl = document.createElement("div");
+markerEl.className = "pink-marker";
+
+const marker = new mapboxgl.Marker(markerEl)
+    .setLngLat([-68.1193, -16.5000])
+    .addTo(map);
+
+// ====== GEOCERCA (CÍRCULO ROSADO) ======
+const geofenceCenter = [-68.1193, -16.503];
+const geofenceRadius = 300; // metros
+
+map.on("load", () => {
+    map.addSource("geofence", {
+        type: "geojson",
+        data: crearGeocerca()
     });
 
-    // Geocerca rosada
-    const circle = new ol.geom.Circle(center, radius);
-
-    const geofenceLayer = new ol.layer.Vector({
-      source: new ol.source.Vector({
-        features: [new ol.Feature(circle)],
-      }),
-      style: new ol.style.Style({
-        stroke: new ol.style.Stroke({
-          color: "#ff69b4",
-          width: 3,
-        }),
-        fill: new ol.style.Fill({
-          color: "rgba(255, 105, 180, 0.25)",
-        }),
-      }),
+    map.addLayer({
+        id: "geofence-fill",
+        type: "fill",
+        source: "geofence",
+        paint: {
+            "fill-color": "#ff7ac4",
+            "fill-opacity": 0.3
+        }
     });
 
-    map.addLayer(geofenceLayer);
-
-    // Marcador rosado
-    const marker = new ol.Feature({
-      geometry: new ol.geom.Point(center),
+    map.addLayer({
+        id: "geofence-outline",
+        type: "line",
+        source: "geofence",
+        paint: {
+            "line-color": "#ff1e88",
+            "line-width": 3
+        }
     });
+});
 
-    marker.setStyle(
-      new ol.style.Style({
-        image: new ol.style.Circle({
-          radius: 10,
-          fill: new ol.style.Fill({ color: "#ff2e9a" }),
-          stroke: new ol.style.Stroke({ color: "white", width: 2 }),
-        }),
-      })
-    );
+// Crear círculo en GeoJSON
+function crearGeocerca() {
+    const points = 64;
+    const coords = [];
 
-    const markerLayer = new ol.layer.Vector({
-      source: new ol.source.Vector({
-        features: [marker],
-      }),
-    });
-
-    map.addLayer(markerLayer);
-
-    // Tarjeta de estado
-    const statusCard = document.getElementById("status");
-
-    function updateStatus(isInside) {
-      if (isInside) {
-        statusCard.className = "status-card inside";
-        statusCard.innerHTML = "💖 Dentro de la geocerca";
-      } else {
-        statusCard.className = "status-card outside";
-        statusCard.innerHTML = "⚠️ Fuera de la geocerca";
-      }
+    for (let i = 0; i < points; i++) {
+        const angle = (i * 360 / points) * (Math.PI / 180);
+        coords.push([
+            geofenceCenter[0] + (geofenceRadius / 111320) * Math.cos(angle),
+            geofenceCenter[1] + (geofenceRadius / 111320) * Math.sin(angle)
+        ]);
     }
 
-    // SIMULACIÓN DE MOVIMIENTO (tú lo cambiarás por GPS real)
-    let angle = 0;
-    setInterval(() => {
-      angle += 0.025;
-      const x = center[0] + Math.cos(angle) * 80;
-      const y = center[1] + Math.sin(angle) * 80;
+    coords.push(coords[0]);
 
-      marker.getGeometry().setCoordinates([x, y]);
+    return {
+        type: "Feature",
+        geometry: {
+            type: "Polygon",
+            coordinates: [coords]
+        }
+    };
+}
 
-      const dx = x - center[0];
-      const dy = y - center[1];
-      const dist = Math.sqrt(dx * dx + dy * dy);
+// ========== ALERTA DE GEOCERCA ==========
+function actualizarAlertaGeocerca(inside) {
+    const alertBar = document.getElementById("geofenceAlert");
 
-      updateStatus(dist <= radius);
-    }, 900);
-  </script>
+    if (inside) {
+        alertBar.innerHTML = "💖 Estás dentro de la geocerca";
+        alertBar.className = "alert-inside";
+        alertBar.style.display = "block";
+    } else {
+        alertBar.innerHTML = "🚨 Estás FUERA de la geocerca";
+        alertBar.className = "alert-outside";
+        alertBar.style.display = "block";
+    }
+}
+
+// ==================== UBICACIÓN EN VIVO ====================
+navigator.geolocation.watchPosition(
+    pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        document.getElementById("lat").innerText = lat;
+        document.getElementById("lng").innerText = lng;
+
+        marker.setLngLat([lng, lat]);
+
+        const dist = calcularDistancia(lat, lng, geofenceCenter[1], geofenceCenter[0]);
+
+        actualizarAlertaGeocerca(dist <= geofenceRadius);
+    },
+    err => console.log(err),
+    { enableHighAccuracy: true }
+);
+
+// Distancia entre dos coordenadas (metros)
+function calcularDistancia(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI/180;
+    const dLon = (lon2 - lon1) * Math.PI/180;
+    const a =
+        Math.sin(dLat/2) ** 2 +
+        Math.cos(lat1*Math.PI/180) *
+        Math.cos(lat2*Math.PI/180) *
+        Math.sin(dLon/2) ** 2;
+
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+</script>
+
 </body>
 </html>
